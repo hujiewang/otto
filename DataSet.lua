@@ -1,0 +1,68 @@
+--[[
+DataSet Class
+--]]
+
+do
+  local DataSet = torch.class('DataSet')
+
+--[[
+input: Tensor
+target: Tensor
+--]]
+  function DataSet:__init(input,target,opt)
+    if target then
+      assert(input:size(1)==target:size(1))
+    end
+    self.input=input
+    self.target=target
+    if self.input:dim() == 1 then
+      self.input = self.input:reshape(1,self.input:size(1))
+    end
+
+    self.shuffle = torch.randperm((#self.input)[1])
+    self.opt=opt
+
+  end
+  function DataSet:type(new_type)
+    if new_type == 'cuda' then
+      self.input = self.input:cuda()
+      if self.target then
+        self.target = self.target:double():cuda()
+      end
+    elseif new_type == 'float' then
+      self.input = self.input:float()
+    elseif new_type == 'double' then
+      self.input = self.input:double()
+    end
+  end
+  function DataSet:getBatch(batch)
+    local s=(batch-1)*self.opt.batch_size+1
+    local e=math.min(batch*self.opt.batch_size,self:size())
+    local inputs=self.input[{{s,e}}]
+    local targets=self.target[{{s,e}}]
+    return inputs,targets
+  end
+
+  function DataSet:shuffleData()
+    self.shuffle = torch.randperm((#self.input)[1])
+  end
+  function DataSet:shuffleComplete()
+    self.shuffle = torch.randperm((#self.input)[1])
+    
+    shuffle_inputs=self.input:clone()
+    shuffle_targets=self.target:clone()
+    for i=1,size do
+      shuffle_inputs[i]=inputs[shuffle[i]];
+      if targets then
+      shuffle_targets[i]=targets[shuffle[i]];
+      end
+    end
+    self.input=shuffle_inputs
+    self.target=shuffle_targets
+    collectgarbage()
+  end
+  function DataSet:size()
+    return (#self.input)[1]
+  end
+end
+
