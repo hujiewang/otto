@@ -7,31 +7,35 @@ require 'DataSet'
 require 'image'
 require 'predict'
 require 'load_data'
+require 'tools'
 
-optim_func=optim.sgd
+optim_func=optim.cg
 optim_params = {
   learningRate = 1e-2,
-  learningRateDecay = 1e-4,
-  weightDecay = 1e-4,
+  learningRateDecay = 1e-6,
+  weightDecay = 1e-5,
   dampening = 0.5,
-  momentum = 0.9,
-  nesterov,
+  momentum = 0.95,
+  --nesterov,
 }
 opt={
   createData = false,
   epochs = 100000,
-  batch_size = 4096,
+  batch_size = 100000,
   predict = false,
-  save_gap = 30,
+  save_gap = 50,
   cuda=true,
+  --model_file = 'model.dat'
 }
 
 print(opt)
 ----------------------------------------------------------------------
+math.randomseed( os.time() )
 --[[GPU or CPU]]--
 if opt.cuda then
   require 'cutorch'
   require 'cunn'
+  torch.setdefaulttensortype('torch.CudaTensor')
   print('Global: switching to CUDA')
 end
 
@@ -70,31 +74,47 @@ print('valid size: '..valid_dataset:size())
 criterion = nn.ClassNLLCriterion()
 
 ----------------------------------------------------------------------
+
+
+--[[ Model #2
+epoch = 227 of 100000 current loss = 1.9432304411337e-05D10h | Step: 2s124ms    
+Training accuracy:	
+87.19471547179	
+Validation accuracy:	
+82.092929292929	
+--]]
+
 model = nn.Sequential()
 
-model:add(nn.Linear(93,512))
+model:add(nn.Linear(93,1024))
 model:add(nn.ReLU())
+model:add(nn.BatchNormalization(1024))
+model:add(nn.Dropout())
+
+model:add(nn.Linear(1024,512))
+model:add(nn.ReLU())
+model:add(nn.BatchNormalization(512))
+model:add(nn.Dropout())
+
+model:add(nn.Linear(512,512))
+model:add(nn.ReLU())
+model:add(nn.BatchNormalization(512))
 model:add(nn.Dropout())
 
 model:add(nn.Linear(512,256))
 model:add(nn.ReLU())
+model:add(nn.BatchNormalization(256))
 model:add(nn.Dropout())
 
-model:add(nn.Linear(256,128))
-model:add(nn.ReLU())
-model:add(nn.Dropout())
-
-model:add(nn.Linear(128,64))
-model:add(nn.ReLU())
-model:add(nn.Dropout())
-
-model:add(nn.Linear(64,32))
-model:add(nn.ReLU())
-model:add(nn.Dropout())
-
-model:add(nn.Linear(32,9))
+model:add(nn.Linear(256,9))
 
 model:add(nn.LogSoftMax())
+
+if opt.model_file then
+  print('Loading existing model...')
+  model_data=torch.load('model.dat')
+  model=model_data['model']
+end
 
 --[[GPU or CPU]]--
 if opt.cuda then
@@ -129,7 +149,8 @@ for i = 1,opt.epochs do
 
   train_confusion:zero()
   valid_confusion:zero()
-  current_loss = 0
+  train_loss = 0
+  valid_loss = 0
   xlua.progress(i,opt.epochs)
   
   -- training 
@@ -149,7 +170,7 @@ for i = 1,opt.epochs do
 
     _,fs = optim_func(feval,x,optim_params)
 
-    current_loss = current_loss + fs[1]
+    train_loss = train_loss + fs[1]
   end
   
   -- Validation
@@ -158,16 +179,18 @@ for i = 1,opt.epochs do
 
     inputs,targets=valid_dataset:getBatch(batch)
     output = model:forward(inputs)
-
     valid_confusion:batchAdd(output, targets)
+    local loss_x = criterion:forward(output, targets)
+    valid_loss = valid_loss + loss_x
   end
 
   train_dataset:shuffleComplete()
   -- report average error on epoch
-  current_loss = current_loss / train_dataset:size()
+  train_loss = train_loss / train_dataset:size()
+  valid_loss = valid_loss / valid_dataset:size()
   print('epoch = ' .. i .. 
     ' of ' .. opt.epochs .. 
-    ' current loss = ' .. current_loss)
+    ' current loss = ' .. train_loss)
 
   train_confusion:updateValids()
   valid_confusion:updateValids()
@@ -180,7 +203,13 @@ for i = 1,opt.epochs do
     print('Found new optima with valid accuracy = '..valid_confusion.totalValid)
     if i-last_save >=opt.save_gap then
       last_save=i
-      torch.save('model.dat',{['model']=model})
+      os.execute('rm model.dat')
+      torch.save('model.dat',{['epoch']=i,
+                              ['train_accuracy']=train_confusion.totalValid,
+                              ['train_loss']=valid_loss,
+                              ['valid_accuracy']=valid_confusion.totalValid,
+                              ['valid_loss']=train_loss,
+                              ['model']=model})
       print('Model has been saved!')
     end
     best_validation_error=valid_confusion.totalValid
