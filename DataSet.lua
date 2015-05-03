@@ -47,14 +47,16 @@ target: Tensor
     self.shuffle = torch.randperm((#self.input)[1])
   end
   function DataSet:shuffleComplete()
-    self.shuffle = torch.randperm((#self.input)[1])
+    self.shuffle = torch.randperm(self:size())
     
     shuffle_inputs=self.input:clone()
-    shuffle_targets=self.target:clone()
-    for i=1,size do
-      shuffle_inputs[i]=inputs[shuffle[i]];
+    if self.target then
+      shuffle_targets=self.target:clone()
+    end
+    for i=1,self:size() do
+      shuffle_inputs[i]=self.input[self.shuffle[i]];
       if targets then
-      shuffle_targets[i]=targets[shuffle[i]];
+        shuffle_targets[i]=self.target[self.shuffle[i]];
       end
     end
     self.input=shuffle_inputs
