@@ -19,7 +19,7 @@ target: Tensor
       self.input = self.input:reshape(1,self.input:size(1))
     end
 
-    self.shuffle = torch.randperm((#self.input)[1])
+    self.shuffle = randperm((#self.input)[1])
     self.opt=opt
 
   end
@@ -39,15 +39,18 @@ target: Tensor
     local s=(batch-1)*self.opt.batch_size+1
     local e=math.min(batch*self.opt.batch_size,self:size())
     local inputs=self.input[{{s,e}}]
-    local targets=self.target[{{s,e}}]
+    local targets=nil
+    if self.target then
+      targets=self.target[{{s,e}}]
+    end
     return inputs,targets
   end
 
   function DataSet:shuffleData()
-    self.shuffle = torch.randperm((#self.input)[1])
+    self.shuffle = randperm((#self.input)[1])
   end
   function DataSet:shuffleComplete()
-    self.shuffle = torch.randperm(self:size())
+    self.shuffle = randperm(self:size())
     
     shuffle_inputs=self.input:clone()
     if self.target then
