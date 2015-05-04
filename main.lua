@@ -9,13 +9,13 @@ require 'predict'
 require 'load_data'
 require 'tools'
 require 'gnuplot'
-require 'model'
+
 
 optim_func=optim.rmsprop
 optim_params = {
   learningRate = 1e-2,
   learningRateDecay = 1e-6,
-  weightDecay = 1e-5,
+  weightDecay = 1e-4,
   dampening = 0.5,
   momentum = 0.95,
   --nesterov,
@@ -23,10 +23,10 @@ optim_params = {
 opt={
   createData = false,
   epochs = 100000,
-  batch_size = 8192,
+  batch_size = 10000,
   predict = false,
-  save_gap = 50,
-  cuda=false,
+  save_gap = 10,
+  cuda=true,
   plot=false,
   sparse_init = true,
   standardize = true,
@@ -43,7 +43,7 @@ if opt.cuda then
   --torch.setdefaulttensortype('torch.CudaTensor')
   print('Global: switching to CUDA')
 end
-
+require 'model'
 require 'csvigo'
 string_to_class={};
 for i=1,9 do
@@ -125,7 +125,7 @@ os.execute("rm ./log/logger.log")
 logger = optim.Logger("./log/logger.log")
 logger:setNames({'# train', 'valid'})
 
-best_validation_error = 0.0
+best_validation_error = math.huge
 last_save = 0
 for i = 1,opt.epochs do
 
@@ -167,6 +167,7 @@ for i = 1,opt.epochs do
   end
 
   train_dataset:shuffleComplete()
+  --train_dataset:shuffleData()
   -- report average error on epoch
   train_loss = train_loss / train_dataset:size()
   valid_loss = valid_loss / valid_dataset:size()
@@ -182,8 +183,9 @@ for i = 1,opt.epochs do
   print(valid_loss)
   print('Validation accuracy:')
   print(valid_confusion.totalValid * 100)
-  
-  logger:add({train_confusion.totalValid * 100,valid_confusion.totalValid * 100})
+  print('best valid loss')
+  print(best_validation_error)
+  logger:add({train_loss,valid_loss})
   if best_validation_error>valid_loss then
     print('Found new optima with valid error = '..valid_loss)
     if i-last_save >=opt.save_gap then
@@ -191,9 +193,9 @@ for i = 1,opt.epochs do
       os.execute('rm ./model/model.dat')
       torch.save('./model/model.dat',{['epoch']=i,
                               ['train_accuracy']=train_confusion.totalValid,
-                              ['train_loss']=valid_loss,
+                              ['train_loss']=train_loss,
                               ['valid_accuracy']=valid_confusion.totalValid,
-                              ['valid_loss']=train_loss,
+                              ['valid_loss']=valid_loss,
                               ['model']=model})
       print('Model has been saved!')
     end

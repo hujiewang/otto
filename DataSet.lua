@@ -43,6 +43,14 @@ target: Tensor
     if self.target then
       targets=self.target[{{s,e}}]
     end
+    --for i=s,e do
+      --print(self.shuffle[i],i)
+      --inputs[i-s+1]=self.input[self.shuffle[i]]
+      --if self.target then
+        --targets[i-s+1]=self.target[self.shuffle[i]]
+      --end
+    --end
+    
     return inputs,targets
   end
 
