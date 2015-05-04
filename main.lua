@@ -8,8 +8,10 @@ require 'image'
 require 'predict'
 require 'load_data'
 require 'tools'
+require 'gnuplot'
+require 'model'
 
-optim_func=optim.cg
+optim_func=optim.rmsprop
 optim_params = {
   learningRate = 1e-2,
   learningRateDecay = 1e-6,
@@ -21,10 +23,13 @@ optim_params = {
 opt={
   createData = false,
   epochs = 100000,
-  batch_size = 100000,
+  batch_size = 8192,
   predict = false,
   save_gap = 50,
-  cuda=true,
+  cuda=false,
+  plot=false,
+  sparse_init = true,
+  standardize = true,
   --model_file = 'model.dat'
 }
 
@@ -35,7 +40,7 @@ math.randomseed( os.time() )
 if opt.cuda then
   require 'cutorch'
   require 'cunn'
-  torch.setdefaulttensortype('torch.CudaTensor')
+  --torch.setdefaulttensortype('torch.CudaTensor')
   print('Global: switching to CUDA')
 end
 
@@ -57,11 +62,11 @@ print('')
 
 if opt.createData then
   train_dataset,valid_dataset=load_data('train.csv')
-  torch.save('data.dat',{['train']=train_dataset,['valid']=valid_dataset})
+  torch.save('./data/data.dat',{['train']=train_dataset,['valid']=valid_dataset})
   print('Data has been saved!, now exiting...')
   return
 else
-  data=torch.load('data.dat')
+  data=torch.load('./data/data.dat')
   train_dataset=data['train']
   valid_dataset=data['valid']
   train_dataset.opt=opt
@@ -69,6 +74,10 @@ else
   print('Data has been loaded!')
 end
 
+if opt.standardize then
+  print('Standardizing dataset...')
+  standardize(train_dataset,valid_dataset)
+end
 print('train size: '..train_dataset:size())
 print('valid size: '..valid_dataset:size())
 criterion = nn.ClassNLLCriterion()
@@ -76,43 +85,9 @@ criterion = nn.ClassNLLCriterion()
 ----------------------------------------------------------------------
 
 
---[[ Model #2
-epoch = 227 of 100000 current loss = 1.9432304411337e-05D10h | Step: 2s124ms    
-Training accuracy:	
-87.19471547179	
-Validation accuracy:	
-82.092929292929	
---]]
-
-model = nn.Sequential()
-
-model:add(nn.Linear(93,1024))
-model:add(nn.ReLU())
-model:add(nn.BatchNormalization(1024))
-model:add(nn.Dropout())
-
-model:add(nn.Linear(1024,512))
-model:add(nn.ReLU())
-model:add(nn.BatchNormalization(512))
-model:add(nn.Dropout())
-
-model:add(nn.Linear(512,512))
-model:add(nn.ReLU())
-model:add(nn.BatchNormalization(512))
-model:add(nn.Dropout())
-
-model:add(nn.Linear(512,256))
-model:add(nn.ReLU())
-model:add(nn.BatchNormalization(256))
-model:add(nn.Dropout())
-
-model:add(nn.Linear(256,9))
-
-model:add(nn.LogSoftMax())
-
 if opt.model_file then
   print('Loading existing model...')
-  model_data=torch.load('model.dat')
+  model_data=torch.load("./model/model.dat")
   model=model_data['model']
 end
 
@@ -127,8 +102,11 @@ if opt.cuda then
     valid_dataset:type('cuda')
   end
 end
-  
 
+if opt.sparse_init then
+  print('Using sparse init')
+  sparseReset(model)
+end
 
 
 x, dl_dx = model:getParameters()
@@ -142,6 +120,10 @@ end
 -- This matrix records the current confusion across classes
 train_confusion = optim.ConfusionMatrix(classes)
 valid_confusion = optim.ConfusionMatrix(classes)
+
+os.execute("rm ./log/logger.log")
+logger = optim.Logger("./log/logger.log")
+logger:setNames({'# train', 'valid'})
 
 best_validation_error = 0.0
 last_save = 0
@@ -170,7 +152,7 @@ for i = 1,opt.epochs do
 
     _,fs = optim_func(feval,x,optim_params)
 
-    train_loss = train_loss + fs[1]
+    train_loss = train_loss + fs[1]*(#inputs)[1]
   end
   
   -- Validation
@@ -181,30 +163,33 @@ for i = 1,opt.epochs do
     output = model:forward(inputs)
     valid_confusion:batchAdd(output, targets)
     local loss_x = criterion:forward(output, targets)
-    valid_loss = valid_loss + loss_x
+    valid_loss = valid_loss + loss_x*(#inputs)[1]
   end
 
   train_dataset:shuffleComplete()
   -- report average error on epoch
   train_loss = train_loss / train_dataset:size()
   valid_loss = valid_loss / valid_dataset:size()
-  print('epoch = ' .. i .. 
-    ' of ' .. opt.epochs .. 
-    ' current loss = ' .. train_loss)
+  print('epoch = ' .. i .. ' of ' .. opt.epochs)
 
   train_confusion:updateValids()
   valid_confusion:updateValids()
+  print('train loss:')
+  print(train_loss)
   print('Training accuracy:')
   print(train_confusion.totalValid * 100)
+  print('valid loss:')
+  print(valid_loss)
   print('Validation accuracy:')
   print(valid_confusion.totalValid * 100)
   
-  if best_validation_error<valid_confusion.totalValid then
-    print('Found new optima with valid accuracy = '..valid_confusion.totalValid)
+  logger:add({train_confusion.totalValid * 100,valid_confusion.totalValid * 100})
+  if best_validation_error>valid_loss then
+    print('Found new optima with valid error = '..valid_loss)
     if i-last_save >=opt.save_gap then
       last_save=i
-      os.execute('rm model.dat')
-      torch.save('model.dat',{['epoch']=i,
+      os.execute('rm ./model/model.dat')
+      torch.save('./model/model.dat',{['epoch']=i,
                               ['train_accuracy']=train_confusion.totalValid,
                               ['train_loss']=valid_loss,
                               ['valid_accuracy']=valid_confusion.totalValid,
@@ -212,7 +197,11 @@ for i = 1,opt.epochs do
                               ['model']=model})
       print('Model has been saved!')
     end
-    best_validation_error=valid_confusion.totalValid
+    best_validation_error=valid_loss
+  end
+  if opt.plot then
+    logger:style({'-','-'})
+    logger:plot()
   end
 end
 
