@@ -13,16 +13,13 @@ end
 
 function sparseReset(mod)
   if not mod.modules then
+    if mod.weight and mod.weight:dim() == 2 then
+        _sparseReset(mod.weight)
+    end
     return
   end
   for k,v in pairs(mod.modules) do
-    if v.modules then
-      sparseReset(v.modules)
-    else
-      if v.weight and v.weight:dim() == 2 then
-        _sparseReset(v.weight)
-      end
-    end
+    sparseReset(v)
   end
 end
 
