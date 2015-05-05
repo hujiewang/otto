@@ -11,10 +11,17 @@ function randperm(n)
   return t
 end
 
-function sparseReset(seq)
-  for k,v in pairs(seq.modules) do
-    if v.weight and v.weight:dim() == 2 then
-      _sparseReset(v.weight)
+function sparseReset(mod)
+  if not mod.modules then
+    return
+  end
+  for k,v in pairs(mod.modules) do
+    if v.modules then
+      sparseReset(v.modules)
+    else
+      if v.weight and v.weight:dim() == 2 then
+        _sparseReset(v.weight)
+      end
     end
   end
 end
@@ -40,11 +47,18 @@ function _sparseReset(W, stdev)
 end
 
 --[[ Normalizes features --]]
-function standardize(train_dataset,valid_dataset)
+function standardize(train_dataset,valid_dataset,test_dataset,_mean,_std)
   mean={}
   std={}
   new_mean={}
   new_std={}
+  if test_dataset then
+    for i=1,test_dataset.input:size(2) do
+      test_dataset.input:select(2,i):add(-_mean[i])
+      test_dataset.input:select(2,i):div(_std[i])
+    end
+    return
+  end
   for i=1,train_dataset.input:size(2) do
     mean[i] = train_dataset.input:select(2,i):mean()
     std[i] = train_dataset.input:select(2,i):std()
@@ -57,10 +71,10 @@ function standardize(train_dataset,valid_dataset)
       valid_dataset.input:select(2,i):div(std[i])
     end
   end
-  print('new mean')
-  print(new_mean)
-  print('new std')
-  print(new_std)
+  --print('new mean')
+  --print(new_mean)
+  --print('new std')
+  --print(new_std)
   os.execute('rm standardize.dat')
   torch.save('standardize.dat',{['mean']=mean,['std']=std})
   print('Standardization data saved!')
