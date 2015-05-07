@@ -50,20 +50,17 @@ function dataset2csv()
   csvigo.save({path='train_data.csv',data=train_csv})
   csvigo.save({path='valid_data.csv',data=valid_csv})
   print('Saved!')
-  print('first 5 lines (train)')
-  for i=1,3 do
+  t_csv=csvigo.load('train_data.csv')
+  v_csv=csvigo.load('valid_data.csv')
+  for i=1,1000 do
     for j=1,93 do
-      print(train_dataset.input[i][j]..' ')
+      assert(''..t_csv['feat_'..j][i]==''..train_dataset.input[i][j])
+      assert(''..v_csv['feat_'..j][i]==''..valid_dataset.input[i][j])
+      assert(t_csv['target'][i]==('Class_'..train_dataset.target[i]))
+      assert(v_csv['target'][i]==('Class_'..valid_dataset.target[i]))
     end
-    print(train_dataset.target[i])
   end
-  print('first 5 lines (valid)')
-  for i=1,3 do
-    for j=1,93 do
-      print(valid_dataset.input[i][j]..' ')
-    end
-    print(valid_dataset.target[i])
-  end
+  print('checking done!')
 end
 
 dataset2csv()
