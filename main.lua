@@ -16,13 +16,13 @@ optim_params = {
   learningRate = 1e-2,
   learningRateDecay = 1e-6,
   weightDecay = 1e-4,
-  dampening = 0.5,
+  dampening = 0.3,
   momentum = 0.95,
-  --nesterov,
+  nesterov,
 }
 opt={
   createData = false,
-  epochs = 100000,
+  epochs = 2000,
   batch_size = 10000,
   predict = false,
   save_gap = 10,
@@ -31,6 +31,7 @@ opt={
   sparse_init = true,
   standardize = true,
   --model_file = 'model.dat'
+  RF = false,
 }
 
 print(opt)
@@ -103,6 +104,10 @@ if opt.cuda then
   end
 end
 
+if opt.RF then
+    train_dataset:RandomPatch(math.ceil(train_dataset:size()/2))
+    print('RF new train size: '..train_dataset:size())
+end
 if opt.sparse_init then
   print('Using sparse init')
   sparseReset(model)
@@ -138,6 +143,7 @@ for i = 1,opt.epochs do
   -- training 
   model:training()
   for batch = 1,math.ceil(train_dataset:size()/opt.batch_size) do
+    --xlua.progress(batch,math.ceil(train_dataset:size()/opt.batch_size))
     inputs,targets=train_dataset:getBatch(batch)
     local feval = function(x_new)
       dl_dx:zero()

@@ -30,7 +30,7 @@ function predict(model_fname,dataset,cuda)
   for k,v in pairs(rv_idx) do
     rv[v]={}
   end
-
+  
   for batch = 1,math.ceil(dataset:size()/pre_opt.batch_size)do    
   xlua.progress(batch,math.ceil(dataset:size()/pre_opt.batch_size))
   local input,_=dataset:getBatch(batch)
@@ -53,23 +53,28 @@ end
 return rv
 end
 
-function predictMulti(models,cuda)
+function predictMulti(models,va)
   print('')
   print('============================================================')
   print('Predicting...')
   print('')
-  
-  local dataset=load_data('test.csv')
+  local dataset
+  if va then
+    data=torch.load('./data/data.dat')
+    dataset=data['valid']
+  else
+    dataset=load_data('test.csv')
+  end
   dataset.opt=pre_opt
   
-  local stand=torch.load('standardize.dat')
+  local stand=torch.load('./data/standardize.dat')
   local mean=stand['mean']
   local std=stand['std']
   standardize(nil,nil,dataset,mean,std)
   
   local data=nil
   for i=1,#models do
-    local rv=predict(models[i],dataset,cuda)
+    local rv=predict(models[i][1],dataset,models[i][2])
     if not data then
       data=rv
     else
@@ -85,7 +90,16 @@ function predictMulti(models,cuda)
       data['Class_'..i][j]=data['Class_'..i][j]/#models 
     end
   end
-  csvigo.save({path='results.csv',data=data})
+  if va then
+    local loss=0
+    for i=1,#data['Class_'..1] do
+      loss=loss+math.log(data['Class_'..dataset.target[i]][i])
+    end
+    loss =loss/#data['Class_'..1]
+    loss = -loss
+    print('loss: '..loss)
+  end
+  csvigo.save({path='./results/results.csv',data=data})
   print('Saved!')
 end
 
@@ -108,8 +122,29 @@ function predictMulti2(outputs)
       data['Class_'..i][j]=data['Class_'..i][j]/#outputs
     end
   end
-  csvigo.save({path='results.csv',data=data})
+  csvigo.save({path='./results/results.csv',data=data})
   print('Saved!')
 end
---predictMulti({'./model/model_6.dat'},true)
-predictMulti2({'./results_6.csv','./results_7.csv','./results_8.csv'})
+--[[
+predictMulti({
+  {'./model/model_6.dat',true},
+  {'./model/model_8.dat',false},
+  --{'./model/model_11.dat',true},
+  --{'./model/model_13.dat',true},
+  --{'./model/model_14.dat',true},
+  --{'./model/model_15.dat',true},
+  },true)
+----predictMulti2({'./results_6.csv','./results_7.csv','./results_8.csv','./results_11.csv','./results_13.csv','./results_14.csv','./results_15.csv'})
+--]]
+
+--[[
+models={}
+models_csv={}
+for i=1,6 do
+  table.insert(models,'./model/'..i..'.dat')
+  table.insert(models_csv,'./RF_'..i..'.csv')
+end
+
+
+predictMulti(models,true,true)
+--]]

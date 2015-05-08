@@ -27,7 +27,7 @@ function load_data(fname)
       end
     end
 
-    local k=math.floor(size*0.2);
+    local k=math.floor(size*0.08);
     valid_inputs=shuffle_inputs[{{1,k}}]
     valid_targets=shuffle_targets[{{1,k}}]
     train_inputs=shuffle_inputs[{{k+1,size}}]

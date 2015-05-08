@@ -78,4 +78,3 @@ target: Tensor
     return (#self.input)[1]
   end
 end
-
