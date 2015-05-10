@@ -15,12 +15,14 @@ def loadData():
     # Load data
     train = pd.read_csv("../data/train_data.csv")
     valid = pd.read_csv("../data/valid_data.csv")
+    test = pd.read_csv("../data/test_data.csv")
 
     train_labels = train['target']
     valid_labels = valid['target']
 
     train_x=train[features].values
     valid_x=valid[features].values
+    test_x=test[features].values
 
     train_y=[]
     valid_y=[]
@@ -37,15 +39,15 @@ def loadData():
     valid_x = valid_x.astype(np.float64)
     train_y = train_y.astype(np.float64)
     valid_y = valid_y.astype(np.float64)
-
+    test_x = test_x.astype(np.float64)
     print('Data has been loaded!')
-    return train_x,train_y,valid_x,valid_y
+    return train_x,train_y,valid_x,valid_y,test_x
 
 # Saves predictions(2-d numpy array) into './results/results.csv'
-def saveData(predictions):
+def saveData(predictions,fpath):
     df = pd.DataFrame(predictions) #predictions is a numpy 2d array
     df.index+=1
     headers = ["Class_1","Class_2","Class_3","Class_4","Class_5","Class_6","Class_7","Class_8","Class_9"]
-    df.to_csv("./results/results.csv", header=headers,index=True, index_label = 'id')
+    df.to_csv(fpath, header=headers,index=True, index_label = 'id')
     print('Predictions has been saved!')
 
