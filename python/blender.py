@@ -7,6 +7,8 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 import os
 import random
+from tqdm import tqdm
+import re
 # Load validation data set
 
 valid = pd.read_csv("./data/valid_data.csv")
@@ -30,28 +32,38 @@ valid_y=np.array(valid_y)
 # Load list of model results
 predictions = []
 results = []
-fname=[
-       "./valid_results/valid_6.csv",
-       "./valid_results/valid_8.csv",
-       "./valid_results/valid_11.csv",
-       "./valid_results/valid_13.csv",
-       "./valid_results/valid_14.csv",
-       "./valid_results/valid_15.csv"
-       ]
-fname_rv=[
-       "./results/results_6.csv",
-       "./results/results_8.csv",
-       "./results/results_11.csv",
-       "./results/results_13.csv",
-       "./results/results_14.csv",
-       "./results/results_15.csv"
-       ]
+fname = []
+fname_rv = []
 
+for file in os.listdir("./valid_results"):
+    fname.append(file)
+for file in os.listdir("./results"):
+    fname_rv.append(file)
+def getID(s):
+    return int(re.findall(r'[\d]+',s)[0])
+
+fname = sorted(fname, key=getID)
+fname_rv = sorted(fname_rv, key=getID )
+
+# Double check every model has two files
+assert(len(fname) == len(fname_rv))
+for i in range(len(fname)):
+    assert(getID(fname[i])==getID(fname_rv[i]))
+
+threshold = 0.44500000
+stat=[]
 for f in fname:
-    data=pd.read_csv(f)
+    data=pd.read_csv("./valid_results/"+f)
     _data=data[["Class_1","Class_2","Class_3","Class_4","Class_5","Class_6","Class_7","Class_8","Class_9"]]
-    predictions.append(_data.values)
+    loss = log_loss(valid_y, _data.values)
+    if  loss < threshold:
+        predictions.append(_data.values)
+        stat.append((f,loss))
 
+stat = sorted(stat, key=lambda t: t[1])
+print('There are {0} models under {1} threshold'.format(len(stat),threshold))
+for v in stat:
+    print(v)
 # finding the optimum weights
 
 def log_loss_func(weights):
@@ -63,7 +75,7 @@ def log_loss_func(weights):
     return log_loss(valid_y, final_prediction)
 
 best_score= 100.0
-for i in range(2):
+for i in tqdm(range(50)):
 
     weights = [0.0]*len(predictions)
     for i in range(len(weights)):
@@ -74,19 +86,25 @@ for i in range(2):
 
     res = minimize(log_loss_func, weights, method='SLSQP', bounds=bounds, constraints=cons)
 
-    print('Ensamble Score: {best_score}'.format(best_score=res['fun']))
-    print('Weights: {weights}'.format(weights=res['x']))
+    #print('Ensamble Score: {best_score}'.format(best_score=res['fun']))
+    #print('Weights: {weights}'.format(weights=res['x']))
     if res['fun']<best_score:
         best_score = res['fun']
         best_weights=res['x']
-    print('Best Ensamble Score: {best_score}'.format(best_score=best_score))
 
+blended_model=[]
+for v in stat:
+    blended_model.append(getID(v[0]))
+blended_model.sort()
+print('Linear combination of model')
+for v in blended_model:
+    print "#"+str(v),
 
-print('Blending models...')
+print('\nBlending models...')
 
 
 for f in fname_rv:
-    data=pd.read_csv(f)
+    data=pd.read_csv("./results/"+f)
     _data=data[["Class_1","Class_2","Class_3","Class_4","Class_5","Class_6","Class_7","Class_8","Class_9"]]
     results.append(_data.values)
 
@@ -99,6 +117,7 @@ for weight,result in zip(best_weights, results):
 df = pd.DataFrame(final_rv) # A is a numpy 2d array
 df.index+=1
 headers = ["Class_1","Class_2","Class_3","Class_4","Class_5","Class_6","Class_7","Class_8","Class_9"]
-df.to_csv("A.csv", header=headers,index=True, index_label = 'id') # C is a list of string corresponding to the title of each column of A
+df.to_csv("./final_results/results.csv", header=headers,index=True, index_label = 'id') # C is a list of string corresponding to the title of each column of A
 
 print('Blended!')
+print('Best Ensamble Score: {best_score}'.format(best_score=best_score))
