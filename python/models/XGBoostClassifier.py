@@ -66,7 +66,8 @@ class XGBoostClassifier(BaseEstimator, ClassifierMixin):
                  random_state=None,
                  watchlist=None,
                  n_jobs=4,
-                 n_iter=150):
+                 n_iter=150,
+                ):
 
 
         if random_state is None:
@@ -102,7 +103,7 @@ class XGBoostClassifier(BaseEstimator, ClassifierMixin):
             self.wl = watchlist
         self.n_iter=n_iter
 
-    def fit(self, X, y=None):
+    def fit(self, X, y):
         self.booster_ = None
         X=self.convert(X, y)
         if self.wl:
@@ -110,15 +111,17 @@ class XGBoostClassifier(BaseEstimator, ClassifierMixin):
             for i, ent in enumerate(self.wl):
                 ent, lbl = ent
                 wl.append((self.convert(ent, lbl), 'test-'+str(i)))
-            self.booster_ = xgb.train(self.param, X, self.n_iter, wl)
+            self.booster_,self.best_iteration= xgb.train(self.param, X, self.n_iter, wl, early_stopping_rounds=30)
         else:
-            self.booster_ = xgb.train(self.param, X, self.n_iter, [(X,'train')])
+            self.booster_,self.best_iteration== xgb.train(self.param, X, self.n_iter, [(X,'train')], early_stopping_rounds=30)
 
         return self
 
     def predict_proba(self, X):
+
+        #print('Predicting using iteration {iter_num}',format(iter_num=self.best_iteration))
         X = xgb.DMatrix(X)
-        return self.booster_.predict(X)
+        return self.booster_.predict(X,ntree_limit=self.best_iteration)
 
     def convert(self, X, y=None):
         if y is None:
