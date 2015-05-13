@@ -2,7 +2,7 @@ __author__ = 'hujie'
 import numpy as np
 from sklearn.metrics import log_loss
 
-def test(valid_y,valid_predictions):
+def test(valid_y,valid_predictions,verbose):
     class2num={}
     for label in range(9):
         tmp=[0]*9
@@ -15,6 +15,9 @@ def test(valid_y,valid_predictions):
     for i in range(0,len(valid_y)):
         _valid_y.append(class2num[valid_y[i]])
     _valid_y=np.array(_valid_y)
-
-    print('valid loss:')
-    print(log_loss(valid_y,valid_predictions))
+    if verbose:
+        print('valid loss:')
+    loss = log_loss(valid_y,valid_predictions)
+    if verbose:
+        print(loss)
+    return loss

@@ -33,21 +33,21 @@ def train(model_id,train_x,train_y,valid_x,valid_y,test_x):
                  'objective':'multi:softprob',
                  'metric':'mlogloss',
                  'num_classes':9,
-                'learning_rate':random.uniform(0.01,0.15),
+                 'learning_rate':random.uniform(0.01,0.15),
                  'max_depth':13+random.randint(0,7),
                  'max_samples':random.uniform(0.5,1.0),
                  'max_features':random.uniform(0.5,1.0),
                  'max_delta_step':random.randint(1,10),
                  'min_child_weight':random.randint(1,8),
                  'min_loss_reduction':1,
-                 'l1_weight':0.0,
-                 'l2_weight':0.0,
+                 'l1_weight':random.uniform(0.0,2.0),
+                 'l2_weight':random.uniform(0.0,2.0),
                  'l2_on_bias':False,
-                 'gamma':0.02,
+                 'gamma':random.uniform(0.0,0.1),
                  'inital_bias':0.5,
                  'random_state':random_state,
                  'n_jobs':8,
-                 'n_iter':20000000,
+                 'n_iter':5,
 
 	}
     xgb = XGBoostClassifier(
@@ -70,26 +70,31 @@ def train(model_id,train_x,train_y,valid_x,valid_y,test_x):
                  config['random_state'],
                  watchlist=[[valid_x,valid_y]],
                  n_jobs=8,
-                 n_iter=20000000,
+                 n_iter=3,
                 )
-    print(config)
+    #print(config)
     xgb.fit(train_x, train_y)
 
     valid_predictions = xgb.predict_proba(valid_x)
     test_predictions= xgb.predict_proba(test_x)
+    loss = test(valid_y,valid_predictions,False)
 
-    if test(valid_y,valid_predictions) <0.438:
+    if  loss<10.438:
+        output=[loss,config]
+        print("model[\""+str(model_id)+"\"]="),
+        print(output)
+
         data.saveData(valid_predictions,"../valid_results/valid_"+str(model_id)+".csv")
         data.saveData(test_predictions,"../results/results_"+str(model_id)+".csv")
-        print(config)
 
 def main(argv):
 	opts,args=getopt.getopt(argv,"n:")
 	for opt,arg in opts:
 		if opt=='-n':
 			n=int(arg)
+
 	print('working on '+str(n)+' to '+str(n+1000))
 	for model_id in range(n,n+1000):
    		 train(model_id,train_x,train_y,valid_x,valid_y,test_x)
 if __name__ == "__main__":
-   main(sys.argv[1:])
+   main(sys.argv[1:]) 
