@@ -1,9 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy.optimize import minimize
-from sklearn.cross_validation import StratifiedShuffleSplit
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import log_loss
 import os
 import random
@@ -46,21 +43,26 @@ fname = sorted(fname, key=getID)
 fname_rv = sorted(fname_rv, key=getID )
 
 # Double check every model has two files
-assert(len(fname) == len(fname_rv))
+#assert(len(fname) == len(fname_rv))
 for i in range(len(fname)):
-    assert(getID(fname[i])==getID(fname_rv[i]))
+    assert(getID(fname[i])==getID(fname_rv[i]),fname[i]+' '+fname_rv[i])
 
-threshold = 0.44500000
+threshold = 0.480
+
+#exclusion = set([6,13,90001,90007,90014,90016,90018,27,20,7000,36,6300,212,6203,20])
+
+exclusion = set([])
+
 stat=[]
 for f in fname:
     data=pd.read_csv("./valid_results/"+f)
     _data=data[["Class_1","Class_2","Class_3","Class_4","Class_5","Class_6","Class_7","Class_8","Class_9"]]
     loss = log_loss(valid_y, _data.values)
-    if  loss < threshold:
+    if  loss < threshold or getID(f) in exclusion:
         predictions.append(_data.values)
-        stat.append((f,loss))
+        stat.append((getID(f),loss))
 
-stat = sorted(stat, key=lambda t: t[1])
+#stat = sorted(stat, key=lambda t: t[1])
 print('There are {0} models under {1} threshold'.format(len(stat),threshold))
 for v in stat:
     print(v)
@@ -75,31 +77,23 @@ def log_loss_func(weights):
     return log_loss(valid_y, final_prediction)
 
 best_score= 100.0
-for i in tqdm(range(50)):
+cons = ({'type':'eq','fun':lambda w: 1-sum(w)})
+bounds = [(0,1)]*len(predictions)
 
+for i in tqdm(range(2)):
     weights = [0.0]*len(predictions)
     for i in range(len(weights)):
         weights[i]=random.uniform(0, 1)
 
-    cons = ({'type':'eq','fun':lambda w: 1-sum(w)})
-    bounds = [(0,1)]*len(predictions)
 
     res = minimize(log_loss_func, weights, method='SLSQP', bounds=bounds, constraints=cons)
 
-    #print('Ensamble Score: {best_score}'.format(best_score=res['fun']))
-    #print('Weights: {weights}'.format(weights=res['x']))
     if res['fun']<best_score:
         best_score = res['fun']
         best_weights=res['x']
 
-blended_model=[]
-for v in stat:
-    blended_model.append(getID(v[0]))
-blended_model.sort()
-print('Linear combination of model')
-for v in blended_model:
-    print "#"+str(v),
 
+print('Best Ensamble Score: {best_score}'.format(best_score=best_score))
 print('\nBlending models...')
 
 
@@ -120,4 +114,3 @@ headers = ["Class_1","Class_2","Class_3","Class_4","Class_5","Class_6","Class_7"
 df.to_csv("./final_results/results.csv", header=headers,index=True, index_label = 'id') # C is a list of string corresponding to the title of each column of A
 
 print('Blended!')
-print('Best Ensamble Score: {best_score}'.format(best_score=best_score))

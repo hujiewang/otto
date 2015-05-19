@@ -35,6 +35,9 @@ target: Tensor
       self.input = self.input:double()
     end
   end
+  function DataSet:randomFeatures(random_feat)
+    self.random_feat = random_feat
+  end
   function DataSet:getBatch(batch)
     local s=(batch-1)*self.opt.batch_size+1
     local e=math.min(batch*self.opt.batch_size,self:size())
@@ -51,6 +54,13 @@ target: Tensor
       --end
     --end
     
+    if self.random_feat then
+      _inputs=torch.CudaTensor(inputs:size(1),(#self.random_feat)[1])
+      for i=1,(#self.random_feat)[1] do
+        _inputs[{{},{i}}]=inputs[{{},{self.random_feat[i]}}]
+      end
+      return _inputs,targets
+    end
     return inputs,targets
   end
 

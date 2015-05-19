@@ -16,15 +16,22 @@ param_grid = [
  {'C': [1, 10, 100, 1000], 'kernel': ['linear']},
  {'C': [1, 10, 100, 1000], 'gamma': [0.001, 0.0001], 'kernel': ['rbf']},
 ]
-svr = SVC()
-gs = GridSearchCV(svr,param_grid,n_jobs=8,verbose=2)
-gs.fit(train_x, train_y)
+clf = SVC(C=1.0, cache_size=200, class_weight=None, coef0=0.0, degree=3,
+    gamma=0.0, kernel='rbf', max_iter=-1, probability=True,
+    random_state=None, shrinking=True, tol=0.001, verbose=True)
 
-valid_predictions = gs.predict_proba(valid_x)
-test_predictions= gs.predict_proba(test_x)
+clf.fit(train_x, train_y)
+
+#gs = GridSearchCV(svc,param_grid,n_jobs=8,verbose=2)
+#gs.fit(train_x, train_y)
+
+
+valid_predictions = clf.predict_proba(valid_x)
+test_predictions= clf.predict_proba(test_x)
 
 test(valid_y,valid_predictions)
 
 
 data.saveData(valid_predictions,"../valid_results/valid_215.csv")
 data.saveData(test_predictions,"../results/results_215.csv")
+

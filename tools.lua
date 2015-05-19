@@ -72,7 +72,7 @@ function standardize(train_dataset,valid_dataset,test_dataset,_mean,_std)
   --print(new_mean)
   --print('new std')
   --print(new_std)
-  os.execute('rm standardize.dat')
+  os.execute('rm ./data/standardize.dat')
   torch.save('./data/standardize.dat',{['mean']=mean,['std']=std})
   print('Standardization data saved!')
 end

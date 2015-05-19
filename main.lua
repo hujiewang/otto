@@ -22,7 +22,7 @@ optim_params = {
 }
 opt={
   createData = false,
-  epochs = 2000,
+  epochs = 3000,
   batch_size = 10000,
   predict = false,
   save_gap = 10,
@@ -32,6 +32,7 @@ opt={
   standardize = true,
   --model_file = 'model.dat'
   RF = false,
+  randFeat = true,
 }
 
 print(opt)
@@ -112,7 +113,12 @@ if opt.sparse_init then
   print('Using sparse init')
   sparseReset(model)
 end
-
+if opt.randFeat then
+  print('Using random features')
+  rand_feat=torch.randperm(50)
+  train_dataset:randomFeatures(rand_feat)
+  valid_dataset:randomFeatures(rand_feat)
+end
 
 x, dl_dx = model:getParameters()
 
@@ -202,7 +208,8 @@ for i = 1,opt.epochs do
                               ['train_loss']=train_loss,
                               ['valid_accuracy']=valid_confusion.totalValid,
                               ['valid_loss']=valid_loss,
-                              ['model']=model})
+                              ['model']=model,
+                              ['randFeat']=rand_feat})
       print('Model has been saved!')
     end
     best_validation_error=valid_loss

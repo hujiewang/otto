@@ -8,13 +8,40 @@ require 'load_data'
 require 'csvigo'
 require 'tools'
 
-pre_opt={
-  batch_size = 8192,
-}
+if not pre_opt then
+   print '==> processing options'
+   cmd = torch.CmdLine()
+   print(cmd)
+   cmd:text()
+   cmd:text('NN predictions')
+   cmd:text()
+   cmd:text('Options:')
+   cmd:option('-file', '0.dat', 'file name')
+   cmd:option('-valid', false, 'validation output')
+   cmd:option('-batch_size', 10000, 'batch_size')
+   cmd:option('-cuda', true, 'using cuda')
+   cmd:option('-randFeat', false, 'using random features')
+   cmd:text()
+   pre_opt = cmd:parse(arg or {})
+end
+print(pre_opt)
+
+function randFeatGenerator(randFeat,inputs)
+  _inputs=torch.CudaTensor(inputs:size(1),(#randFeat)[1])
+  for i=1,(#randFeat)[1] do
+    _inputs[{{},{i}}]=inputs[{{},{randFeat[i]}}]
+  end
+  return _inputs
+end
 function predict(model_fname,dataset,cuda)
 
   local model_data=torch.load(model_fname)
   local model=model_data['model']
+  if pre_opt.randFeat then
+    print('using randFeat')
+    randFeat=model_data['randFeat']
+  end
+  
   local loss = model_data['valid_loss']
   if loss then
     print('model valid loss: '..loss)
@@ -34,6 +61,9 @@ function predict(model_fname,dataset,cuda)
   for batch = 1,math.ceil(dataset:size()/pre_opt.batch_size)do    
   xlua.progress(batch,math.ceil(dataset:size()/pre_opt.batch_size))
   local input,_=dataset:getBatch(batch)
+  if pre_opt.randFeat then
+    input=randFeatGenerator(randFeat,input)
+  end
   if cuda then
     input=input:cuda()
   end
@@ -125,18 +155,20 @@ function predictMulti2(outputs)
   csvigo.save({path='./results/results.csv',data=data})
   print('Saved!')
 end
+
+predictMulti({{pre_opt.file,pre_opt.cuda},},pre_opt.valid)
+
 --[[
 predictMulti({
-  {'./model/model_6.dat',true},
-  {'./model/model_8.dat',false},
+  {'./model/90008.dat',true},
+  --{'./model/model_8.dat',false},
   --{'./model/model_11.dat',true},
   --{'./model/model_13.dat',true},
   --{'./model/model_14.dat',true},
   --{'./model/model_15.dat',true},
-  },true)
-----predictMulti2({'./results_6.csv','./results_7.csv','./results_8.csv','./results_11.csv','./results_13.csv','./results_14.csv','./results_15.csv'})
+  },false)
 --]]
-
+--predictMulti2({'./results_6.csv','./results_7.csv','./results_8.csv','./results_11.csv','./results_13.csv','./results_14.csv','./results_15.csv'})
 --[[
 models={}
 models_csv={}
