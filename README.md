@@ -7,6 +7,8 @@
   ```
   93->BatchNormal->Dropout(0.3)->[Linear(512)->ReLU->BatchNormal->Dropout(0.5)]x3->Linear(9)->LogSoftMax
   ```
+  The model performs 10% better if we use PReLU, but the training is too slow since CUDA version of PReLU has not been implemented yet.
+  
 * Initialization: Sparse Initialization
 
 ### Mixture of Experts of 3 Neural Networks
@@ -108,3 +110,12 @@ to create training and validation dataset under ./data folder
 * python blender.py
     * Output file: ./final_results/final_results.csv for submissions
 
+# References
+The sparse initialization method can be found in
+[Deep learning via Hessian-free optimization](http://machinelearning.wustl.edu/mlpapers/paper_files/icml2010_Martens10.pdf)
+
+[Delving Deep into Rectifiers: Surpassing Human-Level Performance on ImageNet Classification](http://arxiv.org/pdf/1502.01852v1.pdf)
+
+[Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift](http://arxiv.org/pdf/1502.03167v3.pdf)
+
+[Dropout: A Simple Way to Prevent Neural Networks from Overfitting](http://www.cs.toronto.edu/~rsalakhu/papers/srivastava14a.pdf)
