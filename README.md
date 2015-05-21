@@ -95,6 +95,11 @@ opt={
 to create training and validation dataset under ./data folder
 * ./start.sh
     * Trains a list of NN with Torch7 given a NN configuration (model.lua) 
+* ./predict.sh
+    * Loads a list of NN and predicts validation and test results 
+    * Output files(List of results): 
+    * ./valid_results/valid_[model_id].csv (validation dataset)
+    * ./results/results_[model_id].csv  (test dataset)
 * python rf.py (Random Forest model)
     * Output files: 
     * ./valid_results/valid_[model_id].csv (validation dataset)
